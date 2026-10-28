@@ -21,25 +21,25 @@ import MilestonePage from './components/MilestonePage';
 import FilePage from './components/FilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 
+
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Layout>
           <Routes>
-            {/* Home and Auth Routes */}
+
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            
-            {/* Protected Routes */}
+
+
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardNavigation />
               </ProtectedRoute>
             } />
-            
-            {/* Project Routes */}
+
             <Route path="/projects" element={
               <ProtectedRoute>
                 <ProjectListing />
@@ -65,8 +65,8 @@ function App() {
                 <MyProjects />
               </ProtectedRoute>
             } />
-            
-            {/* Contract Routes */}
+
+
             <Route path="/contracts" element={
               <ProtectedRoute>
                 <ContractListing />
@@ -87,7 +87,7 @@ function App() {
                 <FilePage />
               </ProtectedRoute>
             } />
-            
+
             {/* Legacy Dashboard */}
             <Route path="/project-dashboard" element={
               <ProtectedRoute>

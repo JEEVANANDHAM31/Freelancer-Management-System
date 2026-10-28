@@ -76,6 +76,32 @@ public class ProposalController {
         }
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateProposalStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String statusStr = body.get("status");
+        if (statusStr == null) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Status field is required");
+            return ResponseEntity.badRequest().body(error);
+        }
+        Proposal.Status status;
+        try {
+            status = Proposal.Status.valueOf(statusStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Invalid status value: " + statusStr);
+            return ResponseEntity.badRequest().body(error);
+        }
+        Optional<Proposal> updated = proposalService.updateProposalStatus(id, status);
+        if (updated.isPresent()) {
+            return ResponseEntity.ok(updated.get());
+        } else {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Proposal not found with ID: " + id);
+            return ResponseEntity.status(404).body(error);
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProposal(@PathVariable Long id) {
         boolean deleted = proposalService.deleteProposal(id);

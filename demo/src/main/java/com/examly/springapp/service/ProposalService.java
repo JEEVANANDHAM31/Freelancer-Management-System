@@ -25,14 +25,14 @@ public class ProposalService {
             if (proposal.getProjectId().equals(99999L)) {
                 throw new RuntimeException("Project not found with ID: " + proposal.getProjectId());
             }
-            
+
             // Check if freelancer already submitted a proposal for this project
-            if (proposal.getFreelancerId() != null && 
-                existsByProjectIdAndFreelancerId(proposal.getProjectId(), proposal.getFreelancerId())) {
+            if (proposal.getFreelancerId() != null &&
+                    existsByProjectIdAndFreelancerId(proposal.getProjectId(), proposal.getFreelancerId())) {
                 throw new RuntimeException("You have already submitted a proposal for this project");
             }
         }
-        
+
         return proposalRepository.save(proposal);
     }
 
@@ -60,6 +60,13 @@ public class ProposalService {
             proposalRepository.delete(proposal);
             return true;
         }).orElse(false);
+    }
+
+    public Optional<Proposal> updateProposalStatus(Long id, Proposal.Status status) {
+        return proposalRepository.findById(id).map(existingProposal -> {
+            existingProposal.setStatus(status);
+            return proposalRepository.save(existingProposal);
+        });
     }
 
     public boolean existsByProjectIdAndFreelancerId(Long projectId, Long freelancerId) {

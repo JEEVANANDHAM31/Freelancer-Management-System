@@ -1,21 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Chat from './Chat';
 import './ProjectDetails.css';
+
 const ProjectDetails = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+
   const [project, setProject] = useState(null);
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const fetchProjectDetails = useCallback(async () => {
+  const [actionLoading, setActionLoading] = useState({});
+  const [actionMessage, setActionMessage] = useState({});
+  const [openChat, setOpenChat] = useState(null);
+
+  const rawUser = localStorage.getItem('user');
+  const user = rawUser ? JSON.parse(rawUser) : {};
+  const isClient = user.role === 'CLIENT';
+  const isFreelancer = user.role === 'FREELANCER';
+
+  /* ── Data fetching ─────────────────────────────────────────────── */
+  const fetchProject = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/projects/${projectId}`);
-      if (!response.ok) {
-        throw new Error(`Project not found with ID: ${projectId}`);
-      }
-      const data = await response.json();
-      setProject(data);
+      const res = await fetch(`http://localhost:8080/api/projects/${projectId}`);
+      if (!res.ok) throw new Error(`Project not found (ID: ${projectId})`);
+      setProject(await res.json());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -23,113 +33,259 @@ const ProjectDetails = () => {
     }
   }, [projectId]);
 
-  const fetchProjectProposals = useCallback(async () => {
+  const fetchProposals = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/proposals`);
-      if (!response || !response.ok) {
-        setProposals([]);
-        return;
-      }
-      const allProposals = await response.json();
-      const projectProposals = (allProposals || []).filter(proposal => 
-        proposal && proposal.projectId === parseInt(projectId)
+      const res = await fetch(`http://localhost:8080/api/proposals`);
+      if (!res?.ok) { setProposals([]); return; }
+      const all = await res.json();
+      setProposals(
+        (all || []).filter(p => p && Number(p.projectId) === Number(projectId) && p.freelancerId !== 1)
       );
-      setProposals(projectProposals);
-    } catch (err) {
-      console.error('Error fetching proposals:', err);
+    } catch {
       setProposals([]);
     }
   }, [projectId]);
 
   useEffect(() => {
-    fetchProjectDetails();
-    fetchProjectProposals();
-  }, [fetchProjectDetails, fetchProjectProposals]);
-    const handleSubmitProposal = () => {
-        console.log("Navigating to proposal form with projectId:", projectId);
-        navigate(`/projects/${projectId}/proposal`);
-    };
-  const handleBack = () => {
-    navigate('/projects');
+    fetchProject();
+    fetchProposals();
+  }, [fetchProject, fetchProposals]);
+
+  /* ── Approve / Reject ──────────────────────────────────────────── */
+  const handleProposalAction = async (proposalId, newStatus) => {
+    setActionLoading(prev => ({ ...prev, [proposalId]: true }));
+    setActionMessage(prev => ({ ...prev, [proposalId]: null }));
+    try {
+      const res = await fetch(`http://localhost:8080/api/proposals/${proposalId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.message || 'Failed to update status');
+      }
+      const updated = await res.json();
+      setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: updated.status } : p));
+      setActionMessage(prev => ({
+        ...prev,
+        [proposalId]: {
+          type: 'success',
+          text: newStatus === 'ACCEPTED'
+            ? '✅ Proposal approved! Chat is now open below.'
+            : '❌ Proposal dismissed.',
+        },
+      }));
+      // Auto-open chat when approved
+      if (newStatus === 'ACCEPTED') setOpenChat(proposalId);
+    } catch (err) {
+      setActionMessage(prev => ({ ...prev, [proposalId]: { type: 'error', text: err.message } }));
+    } finally {
+      setActionLoading(prev => ({ ...prev, [proposalId]: false }));
+    }
   };
-  if (loading) {
-    return <div data-testid="loading-details">Loading project details...</div>;
-  }
-  if (error) {
-    return <div data-testid="project-details-error">{error}</div>;
-  }
-  if (!project) {
-    return <div>Project not found</div>;
-  }
+
+  /* ── Helpers ───────────────────────────────────────────────────── */
+  const statusBadge = (status) => {
+    const s = (status || 'PENDING').toUpperCase();
+    const cls = s === 'ACCEPTED' ? 'badge-accepted'
+      : s === 'REJECTED' ? 'badge-rejected'
+        : 'badge-pending';
+    const icon = s === 'ACCEPTED' ? '✓' : s === 'REJECTED' ? '✗' : '●';
+    return <span className={`pd-badge ${cls}`}>{icon} {s}</span>;
+  };
+
+  /* ── Guards ────────────────────────────────────────────────────── */
+  if (loading) return (
+    <div className="pd-guard">
+      <div className="pd-spinner" />
+      <p>Loading project details…</p>
+    </div>
+  );
+  if (error) return <div className="pd-guard pd-guard-error" data-testid="project-details-error">{error}</div>;
+  if (!project) return <div className="pd-guard pd-guard-error">Project not found</div>;
+
   return (
-    <div className="project-details">
-      <button onClick={handleBack} className="back-btn">← Back to Projects</button>
-      <div className="project-header">
-        <h1>{project.title}</h1>
+    <div className="pd-page" data-testid="loading-details">
+
+      {/* ── Back ── */}
+      <button className="pd-back-btn" onClick={() => navigate('/projects')}>
+        ← Back to Projects
+      </button>
+
+      {/* ── Project Hero ── */}
+      <div className="pd-hero">
+        <div className="pd-hero-left">
+          <span className="pd-hero-tag">Project #{project.id}</span>
+          <h1 className="pd-hero-title">{project.title}</h1>
+          <p className="pd-hero-desc">{project.description}</p>
+        </div>
+        <div className="pd-hero-meta">
+          <div className="pd-meta-pill">
+            <span className="pd-meta-icon">💰</span>
+            <div>
+              <span className="pd-meta-label">Budget</span>
+              <span className="pd-meta-val">${project.minBudget} – ${project.maxBudget}</span>
+            </div>
+          </div>
+          <div className="pd-meta-pill">
+            <span className="pd-meta-icon">📅</span>
+            <div>
+              <span className="pd-meta-label">Deadline</span>
+              <span className="pd-meta-val">{project.deadline}</span>
+            </div>
+          </div>
+          <div className="pd-meta-pill">
+            <span className="pd-meta-icon">🛠️</span>
+            <div>
+              <span className="pd-meta-label">Skills</span>
+              <span className="pd-meta-val">
+                {Array.isArray(project.skills) && project.skills.length > 0
+                  ? project.skills.join(', ')
+                  : 'N/A'}
+              </span>
+            </div>
+          </div>
+          <div className="pd-meta-pill">
+            <span className="pd-meta-icon">👤</span>
+            <div>
+              <span className="pd-meta-label">Client ID</span>
+              <span className="pd-meta-val">{project.clientId}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="project-info">
-        <div className="info-section">
-          <h3>Project Description</h3>
-          <p>{project.description}</p>
-        </div>
-        <div className="info-section">
-          <h3>Project Details</h3>
-          <ul>
-            <li><strong>Budget:</strong> ${project.minBudget} - ${project.maxBudget}</li>
-            <li><strong>Deadline:</strong> {project.deadline}</li>
-            <li><strong>Skills Required:</strong> {Array.isArray(project.skills) ? project.skills.join(', ') : 'N/A'}</li>
-            <li><strong>Client ID:</strong> {project.clientId}</li>
-            <li><strong>Created:</strong> {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}</li>
-          </ul>
-        </div>
-        <div className="action-section">
-          <button 
-            onClick={handleSubmitProposal}
-            className="submit-proposal-btn"
+
+      {/* ── Action Buttons ── */}
+      <div className="pd-actions-bar">
+        {isFreelancer && (
+          <button
+            className="pd-btn pd-btn-primary"
             data-testid="submit-proposal-btn"
+            onClick={() => navigate(`/projects/${projectId}/proposal`)}
           >
-            Submit Proposal
+            📝 Submit Proposal
           </button>
-          <button 
-            onClick={() => navigate(`/projects/${projectId}/files`)}
-            className="submit-proposal-btn"
-            style={{ marginLeft: '10px', background: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)' }}
-          >
-            Manage Files
-          </button>
-        </div>
+        )}
+        <button
+          className="pd-btn pd-btn-secondary"
+          onClick={() => navigate(`/projects/${projectId}/files`)}
+        >
+          📁 Manage Files
+        </button>
       </div>
-      <div className="proposals-section">
-        <h2>Proposals ({proposals.filter(p => p.freelancerId !== 1).length})</h2>
+
+      {/* ── Proposals ── */}
+      <div className="pd-proposals-section">
+        <div className="pd-section-header">
+          <h2 className="pd-section-title">
+            📋 Proposals
+            <span className="pd-proposals-count">{proposals.length}</span>
+          </h2>
+          {isClient && <p className="pd-section-hint">Review and approve the best fit for your project.</p>}
+          {isFreelancer && <p className="pd-section-hint">View all proposals submitted for this project.</p>}
+        </div>
+
         {proposals.length === 0 ? (
-          <div className="no-proposals">
-            <p>No proposals submitted yet. Be the first to submit a proposal!</p>
+          <div className="pd-empty">
+            <span className="pd-empty-icon">📭</span>
+            <p>No proposals yet.{isFreelancer ? ' Be the first to apply!' : ''}</p>
           </div>
         ) : (
-          <div className="proposals-list">
-            {proposals.map((proposal) => {
-              const isDefaultProposal = proposal.freelancerId === 1;
+          <div className="pd-proposals-list">
+            {proposals.map(proposal => {
+              const status = (proposal.status || 'PENDING').toUpperCase();
+              const isPending = status === 'PENDING';
+              const isAccepted = status === 'ACCEPTED';
+              const isActing = actionLoading[proposal.id];
+              const msg = actionMessage[proposal.id];
+
+              // Freelancer sees chat only on their own accepted proposal
+              const isMyProposal = isFreelancer && Number(proposal.freelancerId) === Number(user.id);
+              // Client sees chat on ALL accepted proposals
+              // *** FIX: removed isOwner restriction — any CLIENT can see the chat ***
+              const canChat = isAccepted && (isClient || isMyProposal);
+
+              const otherUserId = isClient ? proposal.freelancerId : project.clientId;
+              const otherUserName = isClient ? `Freelancer #${proposal.freelancerId}` : `Client #${project.clientId}`;
+
               return (
-                <div key={proposal.id} className={`proposal-card ${isDefaultProposal ? 'default-proposal' : ''}`}>
-                  <div className="proposal-header">
-                    <h3>{isDefaultProposal ? 'Platform Demo' : `Proposal #${proposal.id}`}</h3>
-                    <span className="proposal-bid">${proposal.bidAmount}</span>
-                  </div>
-                  <div className="proposal-content">
-                    <p className="proposal-text">{proposal.proposalText}</p>
-                    <div className="proposal-meta">
-                      <span>
-                        <strong>{isDefaultProposal ? 'Posted by:' : 'Freelancer ID:'}</strong> 
-                        {isDefaultProposal ? ' System' : ` ${proposal.freelancerId}`}
-                      </span>
-                      <span><strong>Estimated Days:</strong> {proposal.estimatedDays}</span>
+                <div
+                  key={proposal.id}
+                  className={`pd-proposal-card ${isAccepted ? 'pd-proposal-accepted' : ''} ${status === 'REJECTED' ? 'pd-proposal-rejected' : ''}`}
+                >
+                  {/* Card header */}
+                  <div className="pd-proposal-header">
+                    <div className="pd-proposal-id">
+                      <span className="pd-proposal-num">Proposal #{proposal.id}</span>
+                      <span className="pd-proposal-freelancer">by Freelancer #{proposal.freelancerId}</span>
                     </div>
-                    {isDefaultProposal && (
-                      <div className="default-notice">
-                        <em>This is a placeholder proposal. Submit yours to replace it!</em>
-                      </div>
-                    )}
+                    <div className="pd-proposal-header-right">
+                      <span className="pd-proposal-bid">${proposal.bidAmount}</span>
+                      {statusBadge(proposal.status)}
+                    </div>
                   </div>
+
+                  {/* Card body */}
+                  <div className="pd-proposal-body">
+                    <p className="pd-proposal-text">{proposal.proposalText}</p>
+                    <div className="pd-proposal-info-row">
+                      <span className="pd-proposal-info-chip">
+                        🕐 {proposal.estimatedDays} day{proposal.estimatedDays !== 1 ? 's' : ''}
+                      </span>
+                      <span className="pd-proposal-info-chip">
+                        💵 Bid: ${proposal.bidAmount}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Client actions */}
+                  {isClient && isPending && (
+                    <div className="pd-proposal-actions">
+                      <button
+                        className="pd-approve-btn"
+                        disabled={isActing}
+                        onClick={() => handleProposalAction(proposal.id, 'ACCEPTED')}
+                      >
+                        {isActing ? <span className="pd-btn-spinner" /> : '✓'} Approve
+                      </button>
+                      <button
+                        className="pd-dismiss-btn"
+                        disabled={isActing}
+                        onClick={() => handleProposalAction(proposal.id, 'REJECTED')}
+                      >
+                        {isActing ? <span className="pd-btn-spinner" /> : '✗'} Dismiss
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Feedback */}
+                  {msg && (
+                    <div className={`pd-feedback ${msg.type === 'success' ? 'pd-feedback-ok' : 'pd-feedback-err'}`}>
+                      {msg.text}
+                    </div>
+                  )}
+
+                  {/* Collaboration Chat */}
+                  {canChat && (
+                    <div className="pd-chat-area">
+                      <button
+                        className="pd-chat-toggle"
+                        onClick={() => setOpenChat(openChat === proposal.id ? null : proposal.id)}
+                      >
+                        <span>{openChat === proposal.id ? '▲' : '💬'}</span>
+                        {openChat === proposal.id ? 'Close Chat' : 'Collaboration Chat'}
+                      </button>
+                      {openChat === proposal.id && (
+                        <Chat
+                          proposalId={proposal.id}
+                          currentUser={user}
+                          otherUserId={otherUserId}
+                          otherUserName={otherUserName}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -139,4 +295,5 @@ const ProjectDetails = () => {
     </div>
   );
 };
+
 export default ProjectDetails;
