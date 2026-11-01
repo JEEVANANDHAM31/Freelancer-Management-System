@@ -2,9 +2,11 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background-color: var(--bg-app, #f8fafc);
 }
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
 }

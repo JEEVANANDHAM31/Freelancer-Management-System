@@ -30,7 +30,7 @@ const ContractDetails = () => {
 
   if (loading) {
     return (
-      <div className="contracts-container">
+      <div className="contracts-container animate-fade-in">
         <div className="loading-message">
           <div className="loading-spinner"></div>
           <p>Loading contract details...</p>
@@ -41,9 +41,10 @@ const ContractDetails = () => {
 
   if (error) {
     return (
-      <div className="contracts-container">
+      <div className="contracts-container animate-fade-in">
         <div className="error-message" data-testid="contract-details-error">
-          {error}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>{error}</span>
         </div>
       </div>
     );
@@ -51,11 +52,11 @@ const ContractDetails = () => {
 
   if (!contract) {
     return (
-      <div className="contracts-container">
+      <div className="contracts-container animate-fade-in">
         <div className="empty-message">
           <h1>Contract Not Found</h1>
           <p>The requested contract could not be found.</p>
-          <button className="btn btn-secondary" onClick={() => navigate('/contracts')}>
+          <button className="btn btn-secondary" onClick={() => navigate('/contracts')} style={{ marginTop: '1rem' }}>
             Back to Contracts
           </button>
         </div>
@@ -64,49 +65,81 @@ const ContractDetails = () => {
   }
 
   return (
-    <div className="contracts-container">
+    <div className="contracts-container animate-fade-in">
       <div className="contract-details">
-        <h1>Contract Details</h1>
         <button className="back-button" onClick={() => navigate('/contracts')}>
           ← Back to Contracts
         </button>
 
+        <div className="contract-header-strip">
+          <div>
+            <span className="contract-category-tag">OFFICIAL CONTRACT</span>
+            <h1>Contract #{contract.id}</h1>
+          </div>
+          <span className={`status-badge ${(contract.status || 'unknown').toLowerCase()}`}>
+            {contract.status || 'Unknown'}
+          </span>
+        </div>
+
         <div className="contract-info">
-          <h2>Contract #{contract.id}</h2>
-          
           <div className="contract-section">
             <h3>Project Information</h3>
-            <p><strong>Title:</strong> {contract.projectTitle || 'N/A'}</p>
-            <p><strong>Description:</strong> {contract.projectDescription || 'N/A'}</p>
+            <div className="contract-fields-grid">
+              <p><strong>Title:</strong> <span>{contract.projectTitle || 'N/A'}</span></p>
+              <p><strong>Description:</strong> <span>{contract.projectDescription || 'N/A'}</span></p>
+            </div>
           </div>
 
           <div className="contract-section">
             <h3>Parties</h3>
-            <p><strong>Client:</strong> {contract.clientName || 'N/A'}</p>
-            <p><strong>Client Email:</strong> {contract.clientEmail || 'N/A'}</p>
-            <p><strong>Freelancer:</strong> {contract.freelancerName || 'N/A'}</p>
-            <p><strong>Freelancer Email:</strong> {contract.freelancerEmail || 'N/A'}</p>
+            <div className="parties-grid">
+              <div className="party-card">
+                <span className="party-role">Client</span>
+                <p><strong>Client:</strong> <span>{contract.clientName || 'N/A'}</span></p>
+                <p><strong>Client Email:</strong> <span>{contract.clientEmail || 'N/A'}</span></p>
+              </div>
+              <div className="party-card">
+                <span className="party-role">Freelancer</span>
+                <p><strong>Freelancer:</strong> <span>{contract.freelancerName || 'N/A'}</span></p>
+                <p><strong>Freelancer Email:</strong> <span>{contract.freelancerEmail || 'N/A'}</span></p>
+              </div>
+            </div>
           </div>
 
           <div className="contract-section">
             <h3>Financial Details</h3>
-            <p><strong>Total Amount:</strong> ${contract.amount}</p>
-            <p><strong>Payment Terms:</strong> {contract.paymentTerms || 'Standard'}</p>
-            <p><strong>Milestone Payments:</strong> {contract.milestonePayments || 'As agreed'}</p>
+            <div className="financial-summary-box">
+              <div className="financial-item highlight">
+                <span className="fin-label">Total Amount</span>
+                <span className="fin-val">${contract.amount}</span>
+              </div>
+              <div className="financial-item">
+                <span className="fin-label">Payment Terms</span>
+                <span className="fin-subval">{contract.paymentTerms || 'Standard'}</span>
+              </div>
+              <div className="financial-item">
+                <span className="fin-label">Milestone Payments</span>
+                <span className="fin-subval">{contract.milestonePayments || 'As agreed'}</span>
+              </div>
+            </div>
           </div>
 
           <div className="contract-section">
             <h3>Timeline</h3>
-            <p><strong>Start Date:</strong> {contract.startDate}</p>
-            <p><strong>End Date:</strong> {contract.endDate}</p>
-            <p><strong>Duration:</strong> {contract.duration || 'Not specified'}</p>
+            <div className="timeline-grid">
+              <p><strong>Start Date:</strong> <span>{contract.startDate}</span></p>
+              <p><strong>End Date:</strong> <span>{contract.endDate}</span></p>
+              <p><strong>Duration:</strong> <span>{contract.duration || 'Not specified'}</span></p>
+            </div>
           </div>
 
           <div className="contract-section">
             <h3>Terms & Conditions</h3>
-            <p><strong>Status:</strong> <span className={`status-badge ${(contract.status || 'unknown').toLowerCase()}`}>{contract.status || 'Unknown'}</span></p>
-            <p><strong>Terms:</strong> {contract.terms || 'Standard terms apply'}</p>
-            <p><strong>Deliverables:</strong> {contract.deliverables || 'As per project requirements'}</p>
+            <div className="terms-box">
+              <p><strong>Status:</strong> <span className={`status-badge ${(contract.status || 'unknown').toLowerCase()}`}>{contract.status || 'Unknown'}</span></p>
+              <p><strong>Terms:</strong> <span>{contract.terms || 'Standard terms apply'}</span></p>
+              <p><strong>Deliverables:</strong> <span>{contract.deliverables || 'As per project requirements'}</span></p>
+            </div>
           </div>
 
           <div className="contract-section">

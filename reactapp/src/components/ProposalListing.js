@@ -6,6 +6,7 @@ const ProposalListing = () => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [editingProposal, setEditingProposal] = useState(null);
   const [editBid, setEditBid] = useState('');
   const [editDays, setEditDays] = useState('');
@@ -25,8 +26,8 @@ const ProposalListing = () => {
       if (!res.ok) throw new Error('Failed to fetch proposals');
       const all = await res.json();
       const filtered = isFreelancer
-        ? all.filter(p => Number(p.freelancerId) === Number(user.id))
-        : all;
+        ? (all || []).filter(p => Number(p.freelancerId) === Number(user.id))
+        : (all || []);
       setProposals(filtered);
     } catch (err) {
       setError(err.message);
@@ -35,9 +36,11 @@ const ProposalListing = () => {
     }
   }, [isFreelancer, user.id]);
 
-  useEffect(() => { fetchProposals(); }, [fetchProposals]);
+  useEffect(() => { 
+    fetchProposals(); 
+  }, [fetchProposals]);
 
-  /* ── Edit Helpers ─────────────────────────────── */
+  /* ── Edit Modal Helpers ──────────────────────── */
   const openEdit = (p) => {
     setEditingProposal(p);
     setEditBid(p.bidAmount);
@@ -55,12 +58,24 @@ const ProposalListing = () => {
     e.preventDefault();
     setEditError('');
     setEditSuccess('');
+
     const bid = parseFloat(editBid);
-    const days = parseInt(editDays);
+    const days = parseInt(editDays, 10);
     const text = String(editText).trim();
-    if (isNaN(bid) || bid <= 0) { setEditError('Bid must be greater than 0.'); return; }
-    if (isNaN(days) || days < 1 || days > 60) { setEditError('Estimated days must be between 1 and 60.'); return; }
-    if (text.length < 20) { setEditError('Proposal text must be at least 20 characters.'); return; }
+
+    if (isNaN(bid) || bid <= 0) {
+      setEditError('Bid must be greater than 0.');
+      return;
+    }
+    if (isNaN(days) || days < 1 || days > 60) {
+      setEditError('Estimated days must be between 1 and 60.');
+      return;
+    }
+    if (text.length < 20) {
+      setEditError('Proposal text must be at least 20 characters.');
+      return;
+    }
+
     setEditSaving(true);
     try {
       const res = await fetch(`http://localhost:8080/api/proposals/${editingProposal.id}`, {
@@ -75,14 +90,16 @@ const ProposalListing = () => {
           status: editingProposal.status,
         }),
       });
+
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.message || 'Update failed');
       }
+
       const updated = await res.json();
       setProposals(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditSuccess('Proposal updated successfully!');
-      setTimeout(closeEdit, 1400);
+      setTimeout(closeEdit, 1200);
     } catch (err) {
       setEditError(err.message);
     } finally {
@@ -90,104 +107,165 @@ const ProposalListing = () => {
     }
   };
 
-  /* ── Badge helper ─────────────────────────────── */
-  const badge = (status) => {
-    const s = (status || 'PENDING').toUpperCase();
-    const cls = s === 'ACCEPTED' ? 'pl-badge-accepted'
-      : s === 'REJECTED' ? 'pl-badge-rejected'
-        : 'pl-badge-pending';
-    const icon = s === 'ACCEPTED' ? '✓' : s === 'REJECTED' ? '✗' : '●';
-    return <span className={`pl-badge ${cls}`}>{icon} {s}</span>;
-  };
+  /* ── Filtered Proposals ──────────────────────── */
+  const filteredProposals = proposals.filter((p) => {
+    if (statusFilter === 'ALL') return true;
+    return (p.status || 'PENDING').toUpperCase() === statusFilter;
+  });
 
-  const cardClass = (status) => {
-    const s = (status || 'PENDING').toUpperCase();
-    return s === 'ACCEPTED' ? 'pl-card pl-card-accepted'
-      : s === 'REJECTED' ? 'pl-card pl-card-rejected'
-        : 'pl-card pl-card-pending';
-  };
+  const totalAccepted = proposals.filter(p => (p.status || '').toUpperCase() === 'ACCEPTED').length;
+  const totalPending = proposals.filter(p => (p.status || '').toUpperCase() === 'PENDING').length;
 
-  /* ── Render ───────────────────────────────────── */
-  if (loading) return (
-    <div className="pl-state">
-      <div className="pl-spinner" />
-      <p>Loading proposals…</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="pl-page">
+        <div className="pl-state">
+          <div className="pl-spinner" />
+          <p>Loading proposals...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (error) return (
-    <div className="pl-state pl-error">
-      <p>⚠️ {error}</p>
-    </div>
-  );
+  if (error) {
+    return (
+      <div className="pl-page">
+        <div className="pl-state pl-error">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="pl-page">
-      {/* Header */}
-      <div className="pl-header">
-        <h1 className="pl-title">
-          {isFreelancer ? '📝 My Proposals' : '📋 All Proposals'}
-        </h1>
-        <p className="pl-subtitle">
-          {isFreelancer
-            ? 'Track your submitted proposals and their current status.'
-            : 'Review and manage all received proposals.'}
-        </p>
+    <div className="pl-page animate-fade-in">
+      {/* Header Banner */}
+      <div className="pl-header-box">
+        <div className="pl-header-left">
+          <span className="pl-badge-category">PROPOSAL PIPELINE</span>
+          <h1 className="pl-title">
+            {isFreelancer ? 'My Submitted Proposals' : 'Candidate Proposals'}
+          </h1>
+          <p className="pl-subtitle">
+            {isFreelancer
+              ? 'Track your active bids, monitor client decisions, and make updates.'
+              : 'Review incoming quotes, compare applicant experience, and select candidates.'}
+          </p>
+        </div>
+
+        {/* Quick Stats Strip */}
+        <div className="pl-header-metrics">
+          <div className="pl-metric-box">
+            <span className="pl-metric-num">{proposals.length}</span>
+            <span className="pl-metric-lbl">Total</span>
+          </div>
+          <div className="pl-metric-box">
+            <span className="pl-metric-num pl-metric-green">{totalAccepted}</span>
+            <span className="pl-metric-lbl">Accepted</span>
+          </div>
+          <div className="pl-metric-box">
+            <span className="pl-metric-num pl-metric-amber">{totalPending}</span>
+            <span className="pl-metric-lbl">Pending</span>
+          </div>
+        </div>
       </div>
 
-      {/* List */}
-      {proposals.length === 0 ? (
-        <div className="pl-empty">
-          <span className="pl-empty-icon">📭</span>
+      {/* Filter Tabs */}
+      <div className="pl-filter-tabs">
+        <button
+          className={`pl-tab-btn ${statusFilter === 'ALL' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('ALL')}
+        >
+          All ({proposals.length})
+        </button>
+        <button
+          className={`pl-tab-btn ${statusFilter === 'PENDING' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('PENDING')}
+        >
+          Pending ({totalPending})
+        </button>
+        <button
+          className={`pl-tab-btn ${statusFilter === 'ACCEPTED' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('ACCEPTED')}
+        >
+          Accepted ({totalAccepted})
+        </button>
+        <button
+          className={`pl-tab-btn ${statusFilter === 'REJECTED' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('REJECTED')}
+        >
+          Dismissed
+        </button>
+      </div>
+
+      {/* Proposals List */}
+      {filteredProposals.length === 0 ? (
+        <div className="pl-empty-card">
+          <div className="pl-empty-icon">📭</div>
+          <h3>No proposals found</h3>
           <p>
             {isFreelancer
-              ? "You haven't submitted any proposals yet. Browse projects to get started!"
-              : 'No proposals found.'}
+              ? "You haven't submitted any proposals matching this criteria. Browse available projects to submit a bid!"
+              : 'No proposals currently match this filter.'}
           </p>
+          {isFreelancer && (
+            <Link to="/projects" className="btn btn-primary" style={{ marginTop: '0.75rem' }}>
+              Explore Projects
+            </Link>
+          )}
         </div>
       ) : (
         <div className="pl-grid">
-          {proposals.map(proposal => {
+          {filteredProposals.map((proposal) => {
             const status = (proposal.status || 'PENDING').toUpperCase();
             const isPending = status === 'PENDING';
+            const isAccepted = status === 'ACCEPTED';
 
             return (
-              <div key={proposal.id} className={cardClass(proposal.status)}>
-                {/* Top row */}
+              <div 
+                key={proposal.id} 
+                className={`pl-card ${isAccepted ? 'pl-card-accepted' : ''} ${status === 'REJECTED' ? 'pl-card-rejected' : 'pl-card-pending'}`}
+              >
                 <div className="pl-card-top">
                   <div>
-                    <p className="pl-card-title">
-                      Proposal #{proposal.id} — Project #{proposal.projectId}
-                    </p>
-                    <p className="pl-card-sub">Freelancer ID: {proposal.freelancerId}</p>
+                    <h3 className="pl-card-title">
+                      Proposal #{proposal.id}
+                    </h3>
+                    <span className="pl-card-sub">
+                      Target Project #{proposal.projectId} • Freelancer ID: {proposal.freelancerId}
+                    </span>
                   </div>
-                  {badge(proposal.status)}
+
+                  <div className="pl-card-top-right">
+                    <span className="pl-card-bid-val">${proposal.bidAmount}</span>
+                    <span className={`pl-badge ${isAccepted ? 'pl-badge-accepted' : status === 'REJECTED' ? 'pl-badge-rejected' : 'pl-badge-pending'}`}>
+                      {status}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Meta chips */}
                 <div className="pl-meta-row">
-                  <span className="pl-chip">💵 ${proposal.bidAmount}</span>
-                  <span className="pl-chip">🕐 {proposal.estimatedDays} day{proposal.estimatedDays !== 1 ? 's' : ''}</span>
-                  <span className="pl-chip">📂 Project #{proposal.projectId}</span>
+                  <span className="pl-chip">💵 Proposed Bid: ${proposal.bidAmount}</span>
+                  <span className="pl-chip">⏱️ Delivery in {proposal.estimatedDays} day{proposal.estimatedDays !== 1 ? 's' : ''}</span>
+                  <span className="pl-chip">📁 Project #{proposal.projectId}</span>
                 </div>
 
-                {/* Proposal text */}
                 <p className="pl-proposal-text">{proposal.proposalText}</p>
 
-                {/* Actions */}
                 <div className="pl-actions">
                   <Link
                     to={`/projects/${proposal.projectId}`}
-                    className="pl-view-btn"
+                    className="btn btn-secondary btn-sm"
                   >
-                    🔗 View Project
+                    View Project Details
                   </Link>
                   {isFreelancer && isPending && (
                     <button
-                      className="pl-edit-btn"
+                      className="btn btn-outline-primary btn-sm"
                       onClick={() => openEdit(proposal)}
                     >
-                      ✏️ Edit
+                      ✏️ Edit Proposal
                     </button>
                   )}
                 </div>
@@ -200,52 +278,64 @@ const ProposalListing = () => {
       {/* Edit Modal */}
       {editingProposal && (
         <div className="pl-modal-overlay" onClick={closeEdit}>
-          <div className="pl-modal" onClick={e => e.stopPropagation()}>
+          <div className="pl-modal" onClick={(e) => e.stopPropagation()}>
             <div className="pl-modal-hdr">
-              <h2>Edit Proposal #{editingProposal.id}</h2>
+              <div>
+                <h2>Edit Proposal #{editingProposal.id}</h2>
+                <small style={{ color: 'rgba(255,255,255,0.8)' }}>Update your terms for Project #{editingProposal.projectId}</small>
+              </div>
               <button className="pl-modal-close" onClick={closeEdit}>✕</button>
             </div>
+
             <form onSubmit={handleEditSave} className="pl-modal-form">
               <div className="pl-modal-field">
                 <label>Bid Amount ($)</label>
                 <input
                   type="number"
                   value={editBid}
-                  onChange={e => setEditBid(e.target.value)}
+                  onChange={(e) => setEditBid(e.target.value)}
                   min="0.01"
                   step="0.01"
                   required
                 />
               </div>
+
               <div className="pl-modal-field">
                 <label>Estimated Days (1–60)</label>
                 <input
                   type="number"
                   value={editDays}
-                  onChange={e => setEditDays(e.target.value)}
+                  onChange={(e) => setEditDays(e.target.value)}
                   min="1"
                   max="60"
                   required
                 />
               </div>
+
               <div className="pl-modal-field">
-                <label>Proposal Description</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label>Proposal Pitch</label>
+                  <small style={{ color: String(editText).trim().length >= 20 ? '#10b981' : '#ef4444' }}>
+                    {String(editText).trim().length} / min 20 chars
+                  </small>
+                </div>
                 <textarea
                   value={editText}
-                  onChange={e => setEditText(e.target.value)}
+                  onChange={(e) => setEditText(e.target.value)}
                   rows={5}
                   required
                 />
-                <small>{String(editText).trim().length} chars (min 20)</small>
               </div>
-              {editError && <p className="pl-modal-err">{editError}</p>}
-              {editSuccess && <p className="pl-modal-ok">{editSuccess}</p>}
+
+              {editError && <div className="form-alert alert-error">{editError}</div>}
+              {editSuccess && <div className="form-alert alert-success">{editSuccess}</div>}
+
               <div className="pl-modal-actions">
-                <button type="button" className="pl-modal-cancel" onClick={closeEdit} disabled={editSaving}>
+                <button type="button" className="btn btn-secondary" onClick={closeEdit} disabled={editSaving}>
                   Cancel
                 </button>
-                <button type="submit" className="pl-modal-save" disabled={editSaving}>
-                  {editSaving ? 'Saving…' : '💾 Save Changes'}
+                <button type="submit" className="btn btn-primary" disabled={editSaving}>
+                  {editSaving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

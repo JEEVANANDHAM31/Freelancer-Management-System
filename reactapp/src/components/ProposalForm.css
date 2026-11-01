@@ -1,79 +1,185 @@
-.proposal-form-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  background-color: var(--bg-secondary);
-  min-height: 100vh;
+/* ProposalForm.css - Modern Proposal Submission Interface */
+
+.proposal-form-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 2.25rem;
+  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.08);
+  margin-top: 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
 }
 
-.proposal-form-page h1 {
-  color: var(--text-primary);
-  text-align: center;
-  margin-bottom: 40px;
-  font-size: 2.5rem;
+.proposal-form-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+.proposal-form-header {
+  margin-bottom: 1.75rem;
+}
+
+.proposal-form-header h3 {
+  font-size: 1.35rem;
   font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.35rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-.proposal-form-container {
-  background: var(--bg-primary);
-  border-radius: 16px;
-  padding: 40px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+.proposal-form-header p {
+  color: #64748b;
+  font-size: 0.92rem;
+  margin: 0;
 }
 
-.form-group {
-  margin-bottom: 25px;
+.form-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 10px;
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.field-label {
+  font-size: 0.88rem;
   font-weight: 600;
-  color: var(--text-primary);
-  font-size: 1.1rem;
+  color: #334155;
 }
 
-.form-group input,
-.form-group textarea {
+.label-with-counter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.char-counter {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.char-counter.valid {
+  color: #10b981;
+}
+
+.char-counter.invalid {
+  color: #94a3b8;
+}
+
+.input-with-adornment {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-adornment {
+  position: absolute;
+  left: 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.styled-form-input {
   width: 100%;
-  padding: 15px;
-  border: 2px solid #e1e8ed;
-  border-radius: 12px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-  box-sizing: border-box;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
+  padding: 0.75rem 1rem 0.75rem 2.25rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background-color: #f8fafc;
   outline: none;
-  border-color: var(--color-primary);
+  transition: all 0.2s ease;
 }
 
-.form-group textarea {
-  min-height: 150px;
+.styled-form-input:focus,
+.styled-form-textarea:focus {
+  background-color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.styled-form-textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s ease;
   resize: vertical;
+  min-height: 120px;
+  line-height: 1.55;
 }
 
-.submit-btn {
-  background: var(--color-primary);
-  color: white;
-  padding: 15px 30px;
-  border: none;
+.field-hint {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Alert States */
+.form-alert {
+  padding: 0.85rem 1.25rem;
   border-radius: 12px;
-  cursor: pointer;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  transition: background-color 0.3s ease;
+  margin-bottom: 1.5rem;
 }
 
-.submit-btn:hover {
-  background: var(--color-primary-dark);
+.alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
 }
 
-.loading, .error {
-  text-align: center;
-  color: var(--text-primary);
-  font-size: 1.2rem;
-  padding: 50px;
+.alert-success {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.proposal-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .proposal-form-card {
+    padding: 1.5rem;
+  }
+
+  .form-fields-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .proposal-form-actions {
+    flex-direction: column;
+  }
+
+  .proposal-form-actions button {
+    width: 100%;
+  }
 }
